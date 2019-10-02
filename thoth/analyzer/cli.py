@@ -50,7 +50,9 @@ def _get_click_arguments(click_ctx: click.core.Command) -> dict:
         for key, value in dict(ctx.params).items():
             # If the given argument was provided as a JSON, parse it so we have structured reports.
             try:
-                value = json.loads(value)
+                parsed_value = json.loads(value)
+                if isinstance(parsed_value, dict):
+                    value = parsed_value
             except Exception:
                 pass
             report[key] = value
@@ -65,7 +67,9 @@ def _get_click_arguments(click_ctx: click.core.Command) -> dict:
 def print_command_result(click_ctx: click.core.Command,
                          result: typing.Union[dict, list], analyzer: str,
                          analyzer_version: str, output: str = None,
-                         pretty: bool = True) -> None:
+                         duration: float = None,
+                         pretty: bool = True,
+                         dry_run: bool = False) -> None:
     """Print or submit results, nicely if requested."""
     metadata = {
         'analyzer': analyzer,
@@ -75,6 +79,7 @@ def print_command_result(click_ctx: click.core.Command,
         'analyzer_version': analyzer_version,
         'distribution': distro.info(),
         'arguments': _get_click_arguments(click_ctx),
+        'duration': int(duration) if duration is not None else None,
         'python': {
             'major': sys.version_info.major,
             'minor': sys.version_info.minor,
@@ -90,6 +95,11 @@ def print_command_result(click_ctx: click.core.Command,
         'result': result,
         'metadata': metadata
     }
+
+    if dry_run:
+        _LOG.info("Printing results to log")
+        _LOG.info(content)
+        return
 
     if isinstance(output, str) and output.startswith(('http://', 'https://')):
         _LOG.info("Submitting results to %r", output)
